@@ -1,7 +1,7 @@
 # Data contract — Lab Day 10
 
 > Bắt đầu từ `contracts/data_contract.yaml` — mở rộng và đồng bộ file này.  
-> Owner nhóm: BuiDucTien_day10 | Cập nhật: 2026-04-15
+> Owner nhóm: Vinno | Cập nhật: 2026-04-15
 
 ---
 
