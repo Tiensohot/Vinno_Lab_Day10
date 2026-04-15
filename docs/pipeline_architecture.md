@@ -1,6 +1,6 @@
 # Kiến trúc pipeline — Lab Day 10
 
-**Nhóm:** BuiDucTien_day10 (Hùng · Phú · Thông · Tiến)  
+**Nhóm:** Vinno (Hùng · Phú · Thông · Tiến)  
 **Cập nhật:** 2026-04-15 | run_id: sprint-final-restore
 
 ---
