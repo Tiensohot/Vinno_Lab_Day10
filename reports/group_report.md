@@ -4,9 +4,9 @@
 **Thành viên:**
 | Tên | Vai trò (Day 10) | Email |
 |-----|------------------|-------|
-| Nguyễn Công Hùng | Ingestion / Raw Owner | — |
-| Phùng Hữu Phú | Cleaning & Quality Owner | — |
-| Chu Thành Thông | Embed & Idempotency Owner | — |
+| Nguyễn Công Hùng | Ingestion / Raw Owner | hungcong1782004@gmail.com |
+| Phùng Hữu Phú | Cleaning & Quality Owner | phungphu02@gmail.com |
+| Chu Thành Thông | Embed & Idempotency Owner | thongphil18@gmail.com |
 | Bùi Đức Tiến | Monitoring / Docs Owner | tienvodich456@gmail.com |
 
 **Ngày nộp:** 2026-04-15  
