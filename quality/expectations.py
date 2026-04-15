@@ -2,6 +2,15 @@
 Expectation suite đơn giản (không bắt buộc Great Expectations).
 
 Sinh viên có thể thay bằng GE / pydantic / custom — miễn là có halt có kiểm soát.
+
+Expectation mới (Sprint 2):
+  E7 unique_chunk_ids (halt): Tất cả chunk_id trong cleaned phải duy nhất.
+      Impact: phát hiện khi cleaning rule tạo ra chunk_id trùng (hash collision / bug).
+      Demo inject: nếu clean_rows có lỗi hoặc dữ liệu bị nhồi chunk_id giả trùng → halt.
+
+  E8 effective_date_not_before_2000 (warn): Không có effective_date trước 2000-01-01.
+      Impact: phát hiện ngày hiệu lực vô lý (placeholder "1900-01-01", lỗi parse ngày âm).
+      Demo inject: thêm row với effective_date=1999-12-31 → expectation FAIL (warn).
 """
 
 from __future__ import annotations
@@ -109,6 +118,38 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
             ok6,
             "halt",
             f"violations={len(bad_hr_annual)}",
+        )
+    )
+
+    # E7 (mới — halt): unique_chunk_ids — tất cả chunk_id phải duy nhất
+    # Impact: phát hiện bug trong hàm _stable_chunk_id hoặc inject chunk_id trùng
+    chunk_ids = [r.get("chunk_id") or "" for r in cleaned_rows]
+    dup_ids = [cid for cid in set(chunk_ids) if chunk_ids.count(cid) > 1]
+    ok7 = len(dup_ids) == 0
+    results.append(
+        ExpectationResult(
+            "unique_chunk_ids",
+            ok7,
+            "halt",
+            f"duplicate_chunk_ids={len(dup_ids)} examples={dup_ids[:3]}",
+        )
+    )
+
+    # E8 (mới — warn): effective_date_not_before_2000 — ngày hiệu lực không được < 2000-01-01
+    # Impact: phát hiện ngày placeholder lỗi (1900-01-01) hoặc parse ngày sai
+    old_date = [
+        r
+        for r in cleaned_rows
+        if (r.get("effective_date") or "") < "2000-01-01"
+        and re.match(r"^\d{4}-\d{2}-\d{2}$", (r.get("effective_date") or ""))
+    ]
+    ok8 = len(old_date) == 0
+    results.append(
+        ExpectationResult(
+            "effective_date_not_before_2000",
+            ok8,
+            "warn",
+            f"pre_2000_rows={len(old_date)}",
         )
     )
 
