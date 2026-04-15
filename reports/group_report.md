@@ -1,4 +1,4 @@
-# Báo Cáo Nhóm — Lab Day 10: Data Pipeline & Data Observability
+<img width="222" height="41" alt="image" src="https://github.com/user-attachments/assets/46566c22-b15d-49b1-8ef6-04cd78a1c5d3" /># Báo Cáo Nhóm — Lab Day 10: Data Pipeline & Data Observability
 
 **Tên nhóm:** BuiDucTien_day10  
 **Thành viên:**
@@ -11,7 +11,7 @@
 
 **Ngày nộp:** 2026-04-15  
 **run_id chính:** `sprint-final-restore`  
-**Repo:** BuiDucTien_day10 / Lecture-Day-08-09-10 / day10/lab
+**Repo:** [BuiDucTien_day10 / Lecture-Day-08-09-10 / day10/lab](https://github.com/Tiensohot/Vinno_Lab_Day10.git)
 
 ---
 
