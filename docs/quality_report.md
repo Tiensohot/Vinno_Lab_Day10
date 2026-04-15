@@ -1,6 +1,6 @@
 # Quality report — Lab Day 10 (nhóm)
 
-**Nhóm:** BuiDucTien_day10  
+**Nhóm:** Vinno  
 **run_id:** sprint-final-restore  
 **Ngày:** 2026-04-15
 
