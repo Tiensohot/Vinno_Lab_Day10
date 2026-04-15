@@ -1,30 +1,43 @@
 # Data contract — Lab Day 10 (tiếp nối artifact CS + IT Helpdesk)
-# Sinh viên bổ sung owner, SLA freshness, và nguồn canonical.
+# Owner: Nhóm BuiDucTien_day10 — 4 thành viên (xem bên dưới)
 
-version: "1.0"
+version: "1.1"
 dataset: "kb_chunk_export"
-owner_team: "__TODO__"
+owner_team: "BuiDucTien_day10"
+owners:
+  ingestion: "Nguyễn Công Hùng"
+  cleaning_quality: "Phùng Hữu Phú"
+  embed: "Chu Thành Thông"
+  monitoring_docs: "Bùi Đức Tiến"
 
 schema_cleaned:
   chunk_id:
     type: string
     required: true
-    description: "ID ổn định sau clean (thường hash hoặc doc_id + seq)"
+    description: "ID ổn định sau clean: sha256[:16] của doc_id|chunk_text|seq"
   doc_id:
     type: string
     required: true
     description: "Khóa logic tài liệu nguồn (vd policy_refund_v4)"
+    constraints:
+      allowed_values: [policy_refund_v4, sla_p1_2026, it_helpdesk_faq, hr_leave_policy, access_control_sop]
   chunk_text:
     type: string
     required: true
     constraints:
       min_length: 8
+      min_words: 3
   effective_date:
     type: date
     required: true
+    constraints:
+      format: "YYYY-MM-DD"
+      min_value: "2000-01-01"
   exported_at:
     type: datetime
     required: true
+    constraints:
+      min_value: "2020-01-01T00:00:00"
 
 quality_rules:
   - id: "no_duplicate_chunk_text"
@@ -32,29 +45,46 @@ quality_rules:
   - id: "no_stale_refund_window"
     description: "Không được để chunk policy refund chứa cửa sổ 14 ngày (lệch so với v4 = 7 ngày)"
     severity: "halt"
+  - id: "normalize_doc_id_whitespace"
+    description: "Strip whitespace khỏi doc_id trước khi kiểm tra allowlist — Rule 7 mới"
+    severity: "fix"
+  - id: "chunk_too_few_words"
+    description: "Quarantine chunk_text < 3 từ (semantic noise) — Rule 8 mới"
+    severity: "quarantine"
+  - id: "stale_source_export"
+    description: "Quarantine exported_at < 2020-01-01 (archive bleed) — Rule 9 mới"
+    severity: "quarantine"
 
 freshness:
   measured_at: "publish"  # ingest | cleaned | publish
   sla_hours: 24
-  alert_channel: "__TODO__"
+  alert_channel: "slack:#data-ops-alerts"
+  warn_hours: 20
 
 canonical_sources:
   - path: "data/docs/policy_refund_v4.txt"
     doc_id: "policy_refund_v4"
+    version: "v4"
+    canonical_truth: true
   - path: "data/docs/sla_p1_2026.txt"
     doc_id: "sla_p1_2026"
   - path: "data/docs/it_helpdesk_faq.txt"
     doc_id: "it_helpdesk_faq"
   - path: "data/docs/hr_leave_policy.txt"
     doc_id: "hr_leave_policy"
+    version_min_effective: "2026-01-01"
+  - path: "data/docs/access_control_sop.txt"
+    doc_id: "access_control_sop"
 
-# Baseline allowlist export — nhóm mở rộng doc mới phải đồng bộ cleaning_rules + contract.
+# Baseline allowlist export — đồng bộ với cleaning_rules.py ALLOWED_DOC_IDS
 allowed_doc_ids:
   - policy_refund_v4
   - sla_p1_2026
   - it_helpdesk_faq
   - hr_leave_policy
+  - access_control_sop   # thêm Sprint 2
 
-# Merit/Distinction: có thể đưa cutoff versioning vào env và tham chiếu ở đây (tránh hard-code trong code).
+# Merit/Distinction: cutoff versioning đọc từ contract thay vì hard-code trong code
 policy_versioning:
   hr_leave_min_effective_date: "2026-01-01"
+  stale_export_cutoff: "2020-01-01T00:00:00"
