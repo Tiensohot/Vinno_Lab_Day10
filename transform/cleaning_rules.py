@@ -3,6 +3,19 @@ Cleaning rules — raw export → cleaned rows + quarantine.
 
 Baseline gồm các failure mode mở rộng (allowlist doc_id, parse ngày, HR stale version).
 Sinh viên thêm ≥3 rule mới: mỗi rule phải ghi `metric_impact` (xem README — chống trivial).
+
+Rule mới (Sprint 2 — nhóm):
+  Rule 7 (normalize_doc_id_whitespace): Strip khoảng trắng đầu/cuối trường doc_id trước khi
+      kiểm tra allowlist. Impact đo được: Row 11 CSV (' hr_leave_policy ') được RESCUED thay vì
+      bị quarantine unknown_doc_id — quarantine_records giảm 1 khi rule hoạt động.
+
+  Rule 8 (quarantine_few_words): Quarantine chunk_text có < 3 từ (sau strip) là noise ngữ nghĩa
+      không đủ ngữ cảnh cho retrieval. Impact đo được: Row 12 CSV ('Ok') bị quarantine
+      → quarantine_records tăng 1 so với chỉ dùng baseline length check.
+
+  Rule 9 (quarantine_stale_source_export): Quarantine chunk có exported_at trước 2020-01-01
+      — dấu hiệu re-export từ kho lưu trữ cũ / clock anomaly. Impact đo được: Row 13 CSV
+      (exported_at=2018-06-15) bị quarantine → quarantine_records tăng 1.
 """
 
 from __future__ import annotations
@@ -10,6 +23,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -20,11 +34,15 @@ ALLOWED_DOC_IDS = frozenset(
         "sla_p1_2026",
         "it_helpdesk_faq",
         "hr_leave_policy",
+        "access_control_sop",  # Rule 9-b: thêm doc mới vào allowlist — đồng bộ data_contract.yaml
     }
 )
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _DMY_SLASH = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
+
+# Ngưỡng cho Rule 9: exported_at trước mốc này là stale source export
+_STALE_EXPORT_CUTOFF = "2020-01-01T00:00:00"
 
 
 def _norm_text(s: str) -> str:
@@ -53,6 +71,33 @@ def _normalize_effective_date(raw: str) -> Tuple[str, str]:
     return "", "invalid_effective_date_format"
 
 
+def _word_count(text: str) -> int:
+    """Đếm số từ trong chuỗi sau khi strip."""
+    return len((text or "").strip().split())
+
+
+def _parse_exported_at(ts: str) -> datetime | None:
+    """Parse exported_at thành datetime UTC; trả None nếu không parse được."""
+    s = (ts or "").strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return None
+
+
+# Mốc cutoff cho Rule 9 (parse một lần)
+_STALE_CUTOFF_DT: datetime = datetime.fromisoformat(_STALE_EXPORT_CUTOFF).replace(
+    tzinfo=timezone.utc
+)
+
+
 def load_raw_csv(path: Path) -> List[Dict[str, str]]:
     rows: List[Dict[str, str]] = []
     with path.open(encoding="utf-8", newline="") as f:
@@ -77,6 +122,12 @@ def clean_rows(
     4) Quarantine: chunk_text rỗng hoặc effective_date rỗng sau chuẩn hoá.
     5) Loại trùng nội dung chunk_text (giữ bản đầu).
     6) Fix stale refund: policy_refund_v4 chứa '14 ngày làm việc' → 7 ngày.
+
+    Rule mới (Sprint 2):
+    7) normalize_doc_id_whitespace: strip leading/trailing whitespace khỏi doc_id trước
+       khi check allowlist — rescues row có doc_id như ' hr_leave_policy '.
+    8) quarantine_few_words: quarantine chunk_text có < 3 từ (semantic noise).
+    9) quarantine_stale_source_export: quarantine nếu exported_at < 2020-01-01 (archive bleed).
     """
     quarantine: List[Dict[str, Any]] = []
     seen_text: set[str] = set()
@@ -84,7 +135,8 @@ def clean_rows(
     seq = 0
 
     for raw in rows:
-        doc_id = raw.get("doc_id", "")
+        # Rule 7 — normalize_doc_id_whitespace: strip trước khi kiểm tra
+        doc_id = (raw.get("doc_id") or "").strip()
         text = raw.get("chunk_text", "")
         eff_raw = raw.get("effective_date", "")
         exported_at = raw.get("exported_at", "")
@@ -113,6 +165,30 @@ def clean_rows(
 
         if not text:
             quarantine.append({**raw, "reason": "missing_chunk_text"})
+            continue
+
+        # Rule 9 — quarantine_stale_source_export: exported_at trước 2020 là archive bleed
+        exp_dt = _parse_exported_at(exported_at)
+        if exp_dt is not None and exp_dt < _STALE_CUTOFF_DT:
+            quarantine.append(
+                {
+                    **raw,
+                    "reason": "stale_source_export",
+                    "exported_at_parsed": exported_at,
+                    "cutoff": _STALE_EXPORT_CUTOFF,
+                }
+            )
+            continue
+
+        # Rule 8 — quarantine_few_words: chunk < 3 từ là noise ngữ nghĩa
+        if _word_count(text) < 3:
+            quarantine.append(
+                {
+                    **raw,
+                    "reason": "chunk_too_few_words",
+                    "word_count": _word_count(text),
+                }
+            )
             continue
 
         key = _norm_text(text)
